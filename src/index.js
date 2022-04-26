@@ -200,10 +200,57 @@ function performUnitOfWork (fiber) {
   }
 }
 
+let wipFiber = null;
+let hookIndex = null;
+
 // 处理函数式组件
 function updateFunctionComponent(fiber) {
+  wipFiber = fiber;
+  hookIndex = 0;
+  wipFiber.hooks = [];
   const children = [fiber.type(fiber.props)];
   reconcileChildren(fiber, children);
+}
+
+function useState (initial) {
+  const oldHook = 
+    wipFiber.alternate &&
+    wipFiber.alternate.hooks &&
+    wipFiber.alternate.hooks[hookIndex];
+
+  const hook = {
+    state: oldHook ? oldHook.state : initial,
+    queue: []
+  }
+
+  const actions = oldHook ? oldHook.queue : [];
+  actions.forEach(action => {
+    hook.state = action(hook.state);
+  })
+
+  const setState = (action) => {
+    const act = 
+      typeof action === 'function'
+        ? action
+        : () => action
+    hook.queue.push(act);
+    /**
+     * 然后，我们做类似于在渲染功能中所做的事情的事情，
+     * 将新的工作扎根为下一个工作单元，
+     * 以便工作循环可以启动新的渲染阶段。
+     */
+    wipRoot = {
+      dom: currentRoot.dom,
+      props: currentRoot.props,
+      alternate: currentRoot,
+    }
+    nextUnitOfWork = wipRoot;
+    deletions = [];
+  }
+
+  wipFiber.hooks.push(hook);
+  hookIndex++;
+  return [hook.state, setState];
 }
 
 function updateHostComponent(fiber) {
@@ -274,7 +321,8 @@ function reconcileChildren (wipFiber, elements) {
 
 const Fact = {
   createElement,
-  render
+  render,
+  useState
 }
 
 /** @jsx Fact.createElement */
@@ -287,8 +335,21 @@ const Fact = {
 
 // Fact.render(element, container)
 
-function App(props) {
-  return <h1>Hi {props.name}</h1>
+function Counter() {
+  const [state, setState] = Fact.useState(1)
+  const [state1, setState1] = Fact.useState(1)
+  return (
+    <div>
+      {/* 两种方式 */}
+      {/* <h1 onClick={() => setState(c => c + 1)}> */}
+      <h1 onClick={() => setState(state + 1)}>
+        Count: {state}
+      </h1>
+      <h2 onClick={() => setState1(c => c + 1)}>
+        Count2: {state1}
+      </h2>
+    </div>
+  )
 }
-const element = <App name="foo" />
+const element = <Counter />
 Fact.render(element, container)

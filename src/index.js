@@ -29,13 +29,7 @@ function createDom (fiber) {
     fiber.type === 'TEXT_ELEMENT'
         ? document.createTextNode('')
         : document.createElement(fiber.type);
-
-  const isProperty = key => key !== 'children';
-  Object.keys(fiber.props)
-    .filter(isProperty)
-    .forEach(propName => {
-      dom[propName] = fiber.props[propName]
-    })
+  updateDom(dom, {}, fiber.props);
 
   return dom;
 }
@@ -267,11 +261,27 @@ const Fact = {
 }
 
 /** @jsx Fact.createElement */
-const element = (
-  <div style="background: salmon;">
-    <h1>Hello World</h1>
-    <h2 style="text-align: right;">from Fact</h2>
-  </div>
-)
+// const element = (
+//   <div style="background: salmon;">
+//     <h1>Hello World</h1>
+//     <h2 style="text-align: right;">from Fact</h2>
+//   </div>
+// )
 
-Fact.render(element, container)
+// Fact.render(element, container)
+
+const updateValue = e => {
+  rerender(e.target.value)
+}
+
+const rerender = value => {
+  const element = (
+    <div>
+      <input onInput={updateValue} value={value} />
+      <h2>Hello {value}</h2>
+    </div>
+  )
+  Fact.render(element, container)
+}
+
+rerender("World")

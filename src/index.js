@@ -99,18 +99,38 @@ function commitRoot () {
 function commitWork (fiber) {
   if (!fiber) return;
 
-  const domParent = fiber.parent.dom;
-  // 需要根据情况处理
-  // domParent.appendChild(fiber.dom);
-  if (fiber.effectTag === 'PLACEMENT' && fiber.dom !== null) {
+  let domParentFiber = fiber.parent;
+  while (!domParentFiber.dom) {
+    domParentFiber = domParentFiber.parent
+  }
+  const domParent = domParentFiber.dom;
+  if (
+    fiber.effectTag === 'PLACEMENT' &&
+    fiber.dom !== null
+  ) {
     domParent.appendChild(fiber.dom);
-  } else if (fiber.effectTag === 'UPDATE' && fiber.dom !== null) {
-    updateDom(fiber.dom, fiber.alternate.props, fiber.props);
+  } else if (
+    fiber.effectTag === 'UPDATE' &&
+    fiber.dom !== null
+  ) {
+    updateDom(
+      fiber.dom,
+      fiber.alternate.props,
+      fiber.props
+    );
   } else if (fiber.effectTag === 'DELETION') {
-    domParent.removeChild(fiber.dom);
+    commitDeletion(fiber, domParent)
   }
   commitWork(fiber.child);
   commitWork(fiber.sibling);
+}
+
+function commitDeletion (fiber, domParent) {
+  if (fiber.dom) {
+    domParent.removeChild(fiber.dom);
+  } else {
+    commitDeletion(fiber.child, domParent);
+  }
 }
 
 function render (element, container) {
@@ -155,29 +175,13 @@ function workLoop (deadline) {
 requestIdleCallback(workLoop);
 
 function performUnitOfWork (fiber) {
-  /**
-   * To start using the loop we’ll need to set the first unit of work,
-   *  and then write a performUnitOfWork function that
-   *  not only performs the work but also returns the next unit of work.
-   */
-  // add dom node
-  if (!fiber.dom) {
-    fiber.dom = createDom(fiber)
+  const isFunctionComonent = 
+    fiber.type instanceof Function;
+  if (isFunctionComonent) {
+    updateFunctionComponent(fiber);
+  } else {
+    updateHostComponent(fiber);
   }
-  /**
-   * 每次我们在元素上工作时，我们都会为DOM添加一个新节点。
-   * 而且，请记住，浏览器可以在完成整棵树之前打断我们的工作。
-   * 在这种情况下，用户将看到一个不完整的UI。我们不想要那个。
-   * 去除以下
-   */
-  // if (fiber.parent) {
-  //   fiber.parent.dom.appendChild(fiber.dom);
-  // }
-
-
-  // create new fibers
-  const elements = fiber.props.children;
-  reconcileChildren(fiber, elements);
   
   // return next unit of work
   if (fiber.child) {
@@ -194,6 +198,19 @@ function performUnitOfWork (fiber) {
     // 若无兄弟节点，向上查找其父亲（后续查找是否有父亲的兄弟节点（叔叔节点））
     nextFiber = nextFiber.parent;
   }
+}
+
+// 处理函数式组件
+function updateFunctionComponent(fiber) {
+  const children = [fiber.type(fiber.props)];
+  reconcileChildren(fiber, children);
+}
+
+function updateHostComponent(fiber) {
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber);
+  }
+  reconcileChildren(fiber, fiber.props.children)
 }
 
 function reconcileChildren (wipFiber, elements) {
@@ -270,18 +287,8 @@ const Fact = {
 
 // Fact.render(element, container)
 
-const updateValue = e => {
-  rerender(e.target.value)
+function App(props) {
+  return <h1>Hi {props.name}</h1>
 }
-
-const rerender = value => {
-  const element = (
-    <div>
-      <input onInput={updateValue} value={value} />
-      <h2>Hello {value}</h2>
-    </div>
-  )
-  Fact.render(element, container)
-}
-
-rerender("World")
+const element = <App name="foo" />
+Fact.render(element, container)

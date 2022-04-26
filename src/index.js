@@ -44,6 +44,34 @@ function render (element, container) {
   container.appendChild(dom);
 }
 
+let nextUnitOfWork = null;
+
+function workLoop (deadline) {
+  // requestIdleCallback also gives us a deadline parameter. 
+  // We can use it to check how much time we have until 
+  // the browser needs to take control again.
+  let shouldYield = false;
+  while (nextUnitOfWork && !shouldYield) {
+    nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
+
+    shouldYield = deadline.timeRemaining() < 1;
+  }
+
+  requestIdleCallback(workLoop);
+}
+
+requestIdleCallback(workLoop);
+
+function performUnitOfWork (nextUnitOfWork) {
+  // TODO
+  /**
+   * To start using the loop we’ll need to set the first unit of work,
+   *  and then write a performUnitOfWork function that
+   *  not only performs the work but also returns the next unit of work.
+   */
+}
+
+
 const Fact = {
   createElement,
   render
